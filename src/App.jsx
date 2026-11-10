@@ -1,20 +1,57 @@
 
-
 import React, { useState } from "react";
+import Sidebar from "./components/Sidebar.jsx";
+import ChatWindow from "./components/ChatWindow.jsx";
+import MessageInput from "./components/MessageInput.jsx";
+import { sendMessage } from "./services/chatService.js";
 
 export default function App() {
-  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function sendMessage() {
-    if (!message.trim()) return;
+  async function handleSend(text) {
+    if (loading) return;
 
-    setMessages([...messages, {
-      text: message,
-      id: Date.now()
-    }]);
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      content: text
+    };
 
-    setMessage("");
+    const history = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    setMessages((previous) => [...previous, userMessage]);
+    setLoading(true);
+    setError("");
+
+    try {
+      const reply = await sendMessage(text, history);
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: reply
+        }
+      ]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function newChat() {
+    setMessages([]);
+    setError("");
+    setSidebarOpen(false);
   }
 
   return (
@@ -22,104 +59,61 @@ export default function App() {
       minHeight: "100vh",
       background: "#071b13",
       color: "white",
-      fontFamily: "Arial, sans-serif",
-      direction: "rtl"
+      direction: "rtl",
+      display: "flex",
+      flexDirection: "column"
     }}>
       <header style={{
-        padding: "18px",
+        padding: "15px 20px",
         borderBottom: "1px solid #244536",
         display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
+        alignItems: "center",
+        gap: "15px"
       }}>
-        <h2 style={{ color: "#39d98a" }}>
+        <button onClick={() => setSidebarOpen(true)}>
+          ☰
+        </button>
+
+        <h2 style={{ color: "#39d98a", margin: 0 }}>
           🇸🇾 Syrian AI
         </h2>
+
         <span>الذكاء الاصطناعي السوري</span>
       </header>
 
-      <main style={{
-        maxWidth: "850px",
-        margin: "auto",
-        padding: "25px"
-      }}>
-        <section style={{
-          textAlign: "center",
-          marginTop: "50px"
-        }}>
-          <h1 style={{ fontSize: "32px" }}>
-            أهلاً بك في الذكاء الاصطناعي السوري
-          </h1>
-          <p style={{ color: "#a9c5b5" }}>
-            مساعدك الذكي للمعرفة والإبداع والتعلم
-          </p>
-        </section>
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onNewChat={newChat}
+        conversations={conversations}
+      />
 
-        <section style={{
-          marginTop: "40px",
-          minHeight: "250px"
-        }}>
-          {messages.map((item) => (
-            <div key={item.id} style={{
-              background: "#153528",
-              padding: "15px",
-              borderRadius: "12px",
-              marginBottom: "12px"
-            }}>
-              {item.text}
-            </div>
-          ))}
-        </section>
+      <ChatWindow
+        messages={messages}
+        loading={loading}
+      />
 
-        <div style={{
-          display: "flex",
-          gap: "10px",
-          background: "#153528",
-          padding: "12px",
-          borderRadius: "16px"
-        }}>
-          <input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") sendMessage();
-            }}
-            placeholder="اكتب رسالتك هنا..."
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "white",
-              fontSize: "16px"
-            }}
-          />
-
-          <button
-            onClick={sendMessage}
-            style={{
-              background: "#20a66a",
-              color: "white",
-              border: "none",
-              padding: "12px 20px",
-              borderRadius: "10px",
-              cursor: "pointer"
-            }}
-          >
-            إرسال
-          </button>
-        </div>
-
+      {error && (
         <p style={{
+          color: "#ff8b8b",
           textAlign: "center",
-          color: "#8ba99a",
-          fontSize: "12px",
-          marginTop: "15px"
+          padding: "10px"
         }}>
-          Syrian AI - منصة الذكاء الاصطناعي السوري
+          {error}
         </p>
-      </main>
+      )}
+
+      <footer style={{
+        width: "100%",
+        maxWidth: "850px",
+        margin: "0 auto",
+        padding: "15px"
+      }}>
+        <MessageInput
+          onSend={handleSend}
+          disabled={loading}
+        />
+      </footer>
     </div>
   );
 }
